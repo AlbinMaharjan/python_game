@@ -1,0 +1,3 @@
+Score: 80
+Score: 40
+Score: 20
