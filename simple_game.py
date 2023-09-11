@@ -120,7 +120,7 @@ while running:
         if enemyY[i]>=420:              #destroying alien
            for j in range(no_of_enemy):
                 enemyY[j]=2000
-                game_over()
+                game_over(50)
                 break
         enemyX[i]+=enemyspeedX[i]  
         if enemyX[i]<=0:

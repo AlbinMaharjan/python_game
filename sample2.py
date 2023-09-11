@@ -1,180 +1,191 @@
 import pygame
 import random
 import math
+import sys
 from pygame import mixer
-import time
 
+# Initialize Pygame and Mixer
+mixer.init()
+pygame.init()
 
-pygame.init()                   # Initialize Pygame
-mixer.init()                    # Initialize mixer
-# Constants
-WIDTH, HEIGHT = 800, 600
-screen = pygame.display.set_mode((WIDTH, HEIGHT))
-pygame.display.set_caption('Welcome To The Space Shooter Game')
+# Create the game window
+screen = pygame.display.set_mode((800, 600))
+pygame.display.set_caption('Space Shooter Game')
 icon = pygame.image.load('icon.png')
 pygame.display.set_icon(icon)
-font = pygame.font.SysFont('Arial', 32)
 
-# Function to display text on the screen
-def draw_text(text, font, color, x, y):
-    text_surface = font.render(text, True, color)
-    screen.blit(text_surface, (x, y))
+# Load background music and play it in a loop
+mixer.music.load('background.wav')
+mixer.music.play(-1)
 
-# Function to display the main menu
-def main_menu():
-    mixer.music.load('background.wav')
-    mixer.music.play(-1)
+# Load game assets (images and sounds)
+background = pygame.image.load('background.png')
+player_img = pygame.image.load('khiladi.png')
+bullet_img = pygame.image.load('goli.png')
 
-    level_selected = None
-    input_method = None
+# Initialize game variables
+spaceshipX = 370
+spaceshipY = 470
+player_speed = 5
+score = 0
+level = 1
+no_of_enemies = 6
+enemies = []
 
-    while level_selected is None:
-        for event in pygame.event.get():
-            if event.type == pygame.QUIT:
-                pygame.quit()
-                quit()
+# Initialize enemy data
+for _ in range(no_of_enemies):
+    enemy = {
+        'img': pygame.image.load('dushman.png'),
+        'x': random.randint(0, 736),
+        'y': random.randint(30, 150),
+        'speed_x': -1,
+        'speed_y': 40
+    }
+    enemies.append(enemy)
 
-        screen.fill((0, 0, 0))
-        draw_text('Welcome To The Space Shooter Game', font, (255, 255, 255), 100, 200)
-        draw_text('Choose a Level:', font, (255, 255, 255), 100, 300)
-        draw_text('1 - Level 1', font, (255, 255, 255), 100, 350)
-        draw_text('2 - Level 2 (Coming Soon)', font, (255, 255, 255), 100, 400)
-        pygame.display.update()
+# Bullet data
+bullet = {
+    'x': 0,
+    'y': 490,
+    'speed_y': 5,
+    'fired': False
+}
 
-        keys = pygame.key.get_pressed()
-        if keys[pygame.K_1]:
-            level_selected = 1
-        elif keys[pygame.K_2]:
-            # Add code for Level 2 if available
-            pass
+# Font for displaying text
+font = pygame.font.Font(None, 36)
 
-    while input_method is None:
-        for event in pygame.event.get():
-            if event.type == pygame.QUIT:
-                pygame.quit()
-                quit()
+# Game over font
+font_gameover = pygame.font.Font(None, 72)
 
-        screen.fill((0, 0, 0))
-        draw_text('Choose Input Method:', font, (255, 255, 255), 100, 200)
-        draw_text('1 - Keyboard', font, (255, 255, 255), 100, 350)
-        draw_text('2 - Mouse', font, (255, 255, 255), 100, 400)
-        pygame.display.update()
+# High score variable
+high_score = 0
 
-        keys = pygame.key.get_pressed()
-        if keys[pygame.K_1]:
-            input_method = 'keyboard'
-        elif keys[pygame.K_2]:
-            input_method = 'mouse'
+# Game state variables
+game_active = True
+game_over = False
 
-    return level_selected, input_method
+# Function to display player on the screen
+def display_player(x, y):
+    screen.blit(player_img, (x, y))
 
-# Your game logic and functions here...
-# Make sure to pass the selected level and input method to the game_loop function
+# Function to display the score on the screen
+def display_score():
+    score_text = font.render(f'Score: {score}', True, (255, 255, 255))
+    screen.blit(score_text, (10, 10))
 
-# Main game loop
-def game_loop(level, input_method):
-    # Your game code here...
-    running = True
-while running:
-    screen.blit(background, (0, 0))
+# Function to display the high score on the screen
+def display_high_score():
+    high_score_text = font.render(f'High Score: {high_score}', True, (255, 255, 255))
+    screen.blit(high_score_text, (600, 10))
+
+# Function to display game over message
+def game_over_message():
+    game_over_text = font_gameover.render('Game Over', True, (255, 0, 0))
+    screen.blit(game_over_text, (250, 250))
+    restart_text = font.render('Press R to Restart', True, (255, 255, 255))
+    screen.blit(restart_text, (250, 350))
+
+# Function to handle collisions and updates
+def update_game():
+    global level, score, spaceshipX, game_over, game_active, high_score  # Declare necessary variables as global
 
     for event in pygame.event.get():
         if event.type == pygame.QUIT:
-            running = False
+            return True  # Signal to exit the game
 
-        if event.type == pygame.KEYDOWN:
-            if event.key == pygame.K_LEFT:
-                spaceship_changeX = -5
-            if event.key == pygame.K_RIGHT:
-                spaceship_changeX = 5
-            if event.key == pygame.K_SPACE:
-                if bullet_state == "ready":
-                    bullet_sound = mixer.Sound('laser.wav')
-                    bullet_sound.play()
-                    bulletX = spaceshipX + 16
-                    fire_bullet(bulletX, bulletY)
-                    bullet_state = "fire"
+    keys = pygame.key.get_pressed()
+    if keys[pygame.K_LEFT]:
+        spaceshipX -= player_speed
+    if keys[pygame.K_RIGHT]:
+        spaceshipX += player_speed
 
-        if event.type == pygame.KEYUP:
-            if event.key == pygame.K_LEFT or event.key == pygame.K_RIGHT:
-                spaceship_changeX = 0
+    # Fire bullet
+    keys = pygame.key.get_pressed()
+    if keys[pygame.K_SPACE] and not bullet['fired']:
+        bullet['fired'] = True
+        bullet['x'] = spaceshipX + 16
+        bullet_sound = mixer.Sound('laser.wav')
+        bullet_sound.play()
 
-    # Mouse control
-    if mouse_control:
-        mouse_x, _ = pygame.mouse.get_pos()
-        spaceshipX = mouse_x - 32
+    # Update bullet position
+    if bullet['fired']:
+        screen.blit(bullet_img, (bullet['x'], bullet['y']))
+        bullet['y'] -= bullet['speed_y']
+        if bullet['y'] <= 0:
+            bullet['y'] = 490
+            bullet['fired'] = False
 
-    spaceshipX += spaceship_changeX
+    # Update enemy positions
+    for enemy in enemies:
+        if enemy['y'] >= 420:
+            game_active = False  # Signal that the game is over
+            if score > high_score:
+                high_score = score  # Update high score
+            return False  # Signal to end the game
 
-    # Keep the spaceship within the screen boundaries
-    if spaceshipX <= 0:
-        spaceshipX = 0
-    elif spaceshipX >= 736:
-        spaceshipX = 736
+        enemy['x'] += enemy['speed_x']
+        if enemy['x'] <= 0:
+            enemy['speed_x'] = 1
+            enemy['y'] += enemy['speed_y']
+        if enemy['x'] >= 736:
+            enemy['speed_x'] = -1
+            enemy['y'] += enemy['speed_y']
 
-    # Enemy movement and collision
-    for i in range(no_of_enemies):
-        enemyX[i] += enemy_speedX[i]
-        if enemyX[i] <= 0:
-            enemy_speedX[i] = 1
-            enemyY[i] += enemy_speedY[i]
-        elif enemyX[i] >= 736:
-            enemy_speedX[i] = -1
-            enemyY[i] += enemy_speedY[i]
-
-        # Check for collision
-        if is_collision(enemyX[i], enemyY[i], bulletX, bulletY):
-            explosion_sound = mixer.Sound('explosion.wav')      #sound overwrite nahos bhanera
+        # Check for collisions
+        distance = math.sqrt(math.pow(bullet['x'] - enemy['x'], 2) + math.pow(bullet['y'] - enemy['y'], 2))
+        if distance < 27:
+            explosion_sound = mixer.Sound('explosion.wav')
             explosion_sound.play()
-            bulletY = 480
-            bullet_state = "ready"
+            bullet['y'] = 490
+            bullet['fired'] = False
+            enemy['x'] = random.randint(0, 736)
+            enemy['y'] = random.randint(30, 150)
             score += 5
-            enemyX[i] = random.randint(0, 736)
-            enemyY[i] = random.randint(30, 150)
 
-        screen.blit(enemy_img[i], (enemyX[i], enemyY[i]))
+        screen.blit(enemy['img'], (enemy['x'], enemy['y']))
 
-    # Bullet movement
-    if bulletY <= 0:
-        bulletY = 480
-        bullet_state = "ready"
-    if bullet_state == "fire":
-        fire_bullet(bulletX, bulletY)
-        bulletY -= 5
+    # Display player and score
+    display_player(spaceshipX, spaceshipY)
+    display_score()
+    display_high_score()
 
-    # Display the player's spaceship and score
-    screen.blit(player_img, (spaceshipX, spaceshipY))
-    show_score(10, 10)
+    return False  # Continue the game
 
-    
-    if current_level == 2 and not level2_started:
-        # Add new enemy types for level 2
-        enemy_img.append(pygame.image.load('level2_enemy.png'))
-        enemy_speedX.append(-2)
-        enemy_speedY.append(20)
-        level2_started = True
+# Main game loop
+running = True
 
-    # Check for level completion
-        if score >= 50 and current_level == 1:
-            current_level = 2
-        level2_started = False
-        time.sleep(2)  # Give a short break between levels
+while running:
+    if game_active:
+        screen.blit(background, (0, 0))
+        game_over = update_game()
 
-    if is_game_over(enemyY):
-        if game_over_time is None:
-            game_over_time = time.time() + game_over_animation_time
-        elif time.time() >= game_over_time:
-            show_game_over()
-            time.sleep(5)  # Display game over message for 5 seconds
-            store_score()  # Store the player's score
-            reset_game()
-            game_over_time = None
+    if game_over:
+        game_over_message()
+        keys = pygame.key.get_pressed()
+        if keys[pygame.K_r]:
+            # Reset the game if 'R' is pressed
+            game_over = False
+            level = 1
+            score = 0
+            spaceshipX = 370
+            bullet['fired'] = False
+            enemies.clear()
+            for _ in range(no_of_enemies):
+                enemy = {
+                    'img': pygame.image.load('dushman.png'),
+                    'x': random.randint(0, 736),
+                    'y': random.randint(30, 150),
+                    'speed_x': -1,
+                    'speed_y': 40
+                }
+                enemies.append(enemy)
+            game_active = True  # Ensure the game is active when restarting
 
     pygame.display.update()
 
-pygame.quit()
-pass
+# Save the high score to a file
+with open('highscore.txt', 'w') as f:
+    f.write(str(high_score))
 
-if __name__ == '__main__':
-    selected_level, selected_input = main_menu()
-    game_loop(selected_level, selected_input)
+pygame.quit()
+sys.exit()
